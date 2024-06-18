@@ -4,7 +4,7 @@ POST http://127.0.0.1:8000/upload
 Content-Type: application/json
 
 {
-    "name": "J",
-    "email": "j",
+    "name": "teste",
+    "email": "teste@teste.com",
     "file": null
 }
