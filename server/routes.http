@@ -1,0 +1,10 @@
+### POST /create
+
+POST http://127.0.0.1:8000/upload
+Content-Type: application/json
+
+{
+    "name": "J",
+    "email": "j",
+    "file": null
+}
