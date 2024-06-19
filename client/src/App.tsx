@@ -7,28 +7,29 @@ export function App() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [file, setFile] = useState<File | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("email", email);
-    if (file) {
-      formData.append("file", file);
-    }
+
+    const data = {
+      name: name,
+      email: email
+    };
 
     try {
       const response = await fetch("http://127.0.0.1:8000/upload", {
         method: "POST",
-        body: formData
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
       });
 
-      if (response.ok) {
+      if (!response.ok) {
         throw new Error("Network response was not ok");
       } else {
-        const data = await response.json();
-        console.log(data);
+        const responseData = await response.json();
+        console.log(responseData);
       }
     } catch (error) {
       console.error("There was a problem with the fetch operation:", error);
@@ -48,15 +49,6 @@ export function App() {
           <div className="pb-4">
             <Label>E-mail</Label>
             <Input className="mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-
-          <div className="pb-4">
-            <Label className="pb-20" htmlFor="file">Envie seu arquivo Evtx</Label>
-            <Input className="mt-1" id="file" type="file" onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                setFile(e.target.files[0]);
-              }
-            }} />
           </div>
 
           <div>
