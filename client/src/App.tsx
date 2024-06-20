@@ -7,22 +7,28 @@ export function App() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const data = {
-      name: name,
-      email: email
-    };
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("email", email);
+    if (file) {
+      formData.append("file", file);
+    }
 
     try {
       const response = await fetch("http://127.0.0.1:8000/upload", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
+        body: formData
       });
 
       if (!response.ok) {
@@ -37,8 +43,8 @@ export function App() {
   }
 
   return (
-    <div className="w-full h-screen flex justify-center items-center">
-      <div className="border border-black p-20 rounded-3xl shadow-2xl">
+    <div className="w-full h-screen flex justify-center items-center bg-black">
+      <div className="border border-black p-20 rounded-3xl shadow-2xl bg-white">
         <h1 className="text-3xl font-bold text-center">Formulário</h1>
         <form className="gap-y-6" onSubmit={handleSubmit}>
           <div className="pb-4">
@@ -49,6 +55,11 @@ export function App() {
           <div className="pb-4">
             <Label>E-mail</Label>
             <Input className="mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+
+          <div className="pb-4">
+            <Label className="pb-20" htmlFor="file">Envie seu arquivo Evtx</Label>
+            <Input className="mt-1" id="file" type="file" onChange={handleFileChange} />
           </div>
 
           <div>

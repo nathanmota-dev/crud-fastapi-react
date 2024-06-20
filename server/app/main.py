@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from . import models
 from .database import engine, get_db
@@ -25,15 +24,6 @@ app.add_middleware(
 )
 
 
-# Schema Pydantic
-class FileRecord(BaseModel):
-    name: str
-    email: str
-
-    class Config:
-        orm_mode = True
-
-
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
@@ -46,9 +36,15 @@ def read_upload(db: Session = Depends(get_db)):
 
 
 @app.post("/upload", status_code=status.HTTP_201_CREATED)
-async def upload_file(new_user: FileRecord, db: Session = Depends(get_db)):
+async def upload_file(
+    name: str = Form(...), 
+    email: str = Form(...), 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
     try:
-        form_create = models.FileRecord(name=new_user.name, email=new_user.email)
+        file_content = await file.read()
+        form_create = models.FileRecord(name=name, email=email, file=file_content)
         db.add(form_create)
         db.commit()
         db.refresh(form_create)
