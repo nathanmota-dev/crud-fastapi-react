@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from . import models
 from .database import engine, get_db
+import tempfile
 
 # Criar todas as tabelas do banco de dados
 models.Base.metadata.create_all(bind=engine)
@@ -51,3 +53,28 @@ async def upload_file(
         return {"Usuário Criado": form_create}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/{file_id}", response_class=FileResponse)
+async def download_file(file_id: int, db: Session = Depends(get_db)):
+    file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Cria um arquivo temporário para armazenar o conteúdo binário
+    temp_file = temp_file.NamedTemporaryFile(delete=False)
+    temp_file.write(file_record.file)
+    temp_file.close()
+
+    return FileResponse(path=temp_file.name, filename="downloaded_file", media_type="application/octet-stream")
+
+@app.get("/save/{file_id}")
+async def save_file(file_id: int, db: Session = Depends(get_db)):
+    file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_path = f"./saved_files/file_{file_id}.bin"
+    with open(file_path, "wb") as f:
+        f.write(file_record.file)
+
+    return {"message": "File saved successfully", "file_path": file_path}
