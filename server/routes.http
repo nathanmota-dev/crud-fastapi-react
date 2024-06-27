@@ -1,9 +1,6 @@
 ### POST /create
 
-POST http://127.0.0.1:8000/upload
-Content-Type: application/json
+POST http://127.0.0.1:8000/download
+Content-Type: application/x-www-form-urlencoded
 
-{
-    "name": "teste",
-    "email": "teste@teste.com"    
-}
+file_id=8
