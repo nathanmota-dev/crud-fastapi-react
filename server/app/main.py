@@ -1,12 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form, Query
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from . import models
 from .database import engine, get_db
+from evtx import PyEvtxParser
 import tempfile
 
-# Criar todas as tabelas do banco de dados
+# Cria todas as tabelas do banco de dados
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -39,10 +40,10 @@ def read_upload(db: Session = Depends(get_db)):
 
 @app.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_file(
-    name: str = Form(...), 
-    email: str = Form(...), 
-    file: UploadFile = File(...), 
-    db: Session = Depends(get_db)
+    name: str = Form(...),
+    email: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ):
     try:
         file_content = await file.read()
@@ -50,12 +51,13 @@ async def upload_file(
         db.add(form_create)
         db.commit()
         db.refresh(form_create)
-        return {"Usuário Criado": form_create}
+        return {"Usuário Criado": "User create successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/download", response_class=FileResponse)
-async def download_file(file_id: int = Form(...), db: Session = Depends(get_db)):
+
+@app.post("/download", response_class=JSONResponse)
+async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
     file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
@@ -65,11 +67,20 @@ async def download_file(file_id: int = Form(...), db: Session = Depends(get_db))
     temp_file.write(file_record.file)
     temp_file.close()
 
-    return FileResponse(path=temp_file.name, filename="downloaded_file", media_type="application/octet-stream")
-
+    # Extrai e converte o conteúdo do arquivo .evtx em JSON
+    try:
+        caminho_arquivo = PyEvtxParser(temp_file.name)
+        records = [record for record in caminho_arquivo.records_json()]
+        return JSONResponse(content=records)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}")
+    
+    
 @app.post("/save")
 async def save_file(file_id: int = Form(...), db: Session = Depends(get_db)):
-    file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    file_record = (
+        db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    )
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -79,6 +90,10 @@ async def save_file(file_id: int = Form(...), db: Session = Depends(get_db)):
 
     # Leitura e extração de informações do arquivo
     with open(file_path, "rb") as f:
-        file_content = f.read()        
+        file_content = f.read()
 
-    return {"message": "File saved successfully", "file_path": file_path, "file_content": file_content}
+    return {
+        "message": "File saved successfully",
+        "file_path": file_path,
+        "file_content": file_content,
+    }
