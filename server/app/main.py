@@ -1,4 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form, Query
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    status,
+    File,
+    UploadFile,
+    Form,
+    Query,
+    Response,
+)
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,6 +16,8 @@ from . import models
 from .database import engine, get_db
 from evtx import PyEvtxParser
 import tempfile
+import matplotlib.pyplot as plt
+import io
 
 # Cria todas as tabelas do banco de dados
 models.Base.metadata.create_all(bind=engine)
@@ -58,7 +70,9 @@ async def upload_file(
 
 @app.post("/download", response_class=JSONResponse)
 async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
-    file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    file_record = (
+        db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    )
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -73,9 +87,11 @@ async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)
         records = [record for record in caminho_arquivo.records_json()]
         return JSONResponse(content=records)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}")
-    
-    
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
+        )
+
+
 @app.post("/save")
 async def save_file(file_id: int = Form(...), db: Session = Depends(get_db)):
     file_record = (
@@ -97,3 +113,21 @@ async def save_file(file_id: int = Form(...), db: Session = Depends(get_db)):
         "file_path": file_path,
         "file_content": file_content,
     }
+
+
+@app.get("/plot")
+async def get_plot():
+    x = [1, 2, 3, 4, 5]
+    y = [2, 3, 5, 7, 11]
+
+    plt.figure()
+    plt.plot(x, y)
+    plt.title("Gráfico teste")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png")
+    buf.seek(0)
+
+    return Response(content=buf.getvalue(), media_type="image/png")
