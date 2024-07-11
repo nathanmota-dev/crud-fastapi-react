@@ -22,7 +22,10 @@ Além de analisar as causas das falhas de software, também serão investigados 
 
 ### Tecnologias utilizadas
 
-- `ReactJs` - [ReactJs](https://pt-br.legacy.reactjs.org/)
+- ReactJS
+- Python
+- FastAPI
+- PostgreSQL
 
 ### Como Executar o Projeto
 
