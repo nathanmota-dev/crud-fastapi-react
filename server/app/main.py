@@ -1,16 +1,3 @@
-# NA PASTAR SERVER, E NÃO NA APP.
-# uvicorn app.main:app --reload --root-path server
-
-# Vá para a aba "Headers".
-# Adicione um novo cabeçalho: Content-Type com o valor multipart/form-data.
-# Vá para a aba "Body".
-# Selecione a opção "form-data".
-# Adicione os campos do formulário: name, email e files:
-# -Para name e email, defina o tipo como "Text" e insira os valores apropriados.
-# -Para files, defina o tipo como "File". Clique em "Select Files" e escolha os arquivos que deseja enviar. 
-#     Repita este passo para cada arquivo que deseja enviar.
-
-
 from fastapi import (
     FastAPI,
     Depends,
@@ -34,6 +21,10 @@ import tempfile
 import matplotlib.pyplot as plt
 import io
 import os
+import re
+import xmltodict
+import pandas as pd
+from collections import defaultdict
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -87,26 +78,97 @@ async def upload_files(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-# @app.get("/files", response_model=List[FileRecordResponse])
-# def list_files(db: Session = Depends(get_db)):
-#     files = db.query(models.FileRecord).all() # Retorna todos os registros da tabela 'file_records'
-#     return files
 
-# "Params" no  postman, 'file_id' 
-@app.post("/download", response_class=JSONResponse)
+@app.post("/download_first", response_class=JSONResponse)
 async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
     file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
+    try:        
+        file_content = io.BytesIO(file_record.file)
+        parser = PyEvtxParser(file_content)
+        records = [record for record in parser.records_json()]
+        return JSONResponse(content=records)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
+        )
+
+
+@app.post("/download", response_class=JSONResponse)
+async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
+    # Recuperar o registro do banco de dados
+    file_record = (
+        db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
+    )
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Criar um arquivo temporário
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         temp_file.write(file_record.file)
         temp_file_path = temp_file.name
 
     try:
         parser = PyEvtxParser(temp_file_path)
-        records = [record for record in parser.records_json()]
-        return JSONResponse(content=records)
+        error_records = []
+
+        # Filtrar registros de erro
+        for record in parser.records_json():
+            event_level_match = re.search(r"<Level>(.*?)</Level>", record["data"])
+            if not event_level_match:
+                continue
+            event_level = event_level_match.group(1)
+            if (
+                "Application" in file_record.original_filename and event_level == "2"
+            ) or (
+                "System" in file_record.original_filename and event_level in ("1", "2")
+            ):
+                error_records.append(record)
+
+        # Carregar eventos não-falhos
+        caminho_para_csv = r"C:\Users\natha\Desktop\git\crud-fastapi-react\server\app"
+        df_non_failure_events = pd.read_csv(
+            os.path.join(caminho_para_csv, "1_non_failure_events.csv"),
+            encoding="utf-8-sig",
+            engine="python",
+        )
+
+        dict_non_failure_events = defaultdict(list)
+        for k, v in zip(
+            df_non_failure_events.SourceName, df_non_failure_events.EventID
+        ):
+            dict_non_failure_events[k.lower()].append(v)
+
+        # Filtrar registros não-falhos
+        filtered_records = []
+        for record in error_records:
+            line_filtered_1 = re.sub(r"<\?xml([\s\S]*?)>\n", "", record["data"])
+            line_filtered_2 = re.sub(r" xmlns=\"([\s\S]*?)\"", "", line_filtered_1)
+            evento_estrutura_dict = xmltodict.parse(line_filtered_2)
+            evento_estrutura_dict__tag_System = evento_estrutura_dict.get("Event").get(
+                "System"
+            )
+
+            SourceName = evento_estrutura_dict__tag_System.get("Provider").get("@Name")
+            if SourceName is None:
+                SourceName = evento_estrutura_dict__tag_System.get("Provider").get(
+                    "@EventSourceName"
+                )
+
+            EventID = evento_estrutura_dict__tag_System.get("EventID")
+            if isinstance(EventID, dict): 
+                EventID = EventID.get("#text")
+
+            if SourceName.lower() in dict_non_failure_events:
+                listaDe_EventIDs = dict_non_failure_events[SourceName.lower()]
+                if int(EventID) in listaDe_EventIDs:
+                    continue
+            filtered_records.append(record)
+
+        return JSONResponse(content=filtered_records)
+
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
