@@ -79,7 +79,7 @@ async def upload_files(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/download_first", response_class=JSONResponse)
+@app.post("/downloadd", response_class=JSONResponse)
 async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
     file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
     if not file_record:
