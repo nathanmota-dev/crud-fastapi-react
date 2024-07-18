@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from . import models
-from .database import engine, get_db
+from .database import engine, get_db, connect_to_db
 from .models import FileRecordResponse  # Importa o modelo Pydantic para a resposta
 from evtx import PyEvtxParser
 import tempfile
@@ -43,6 +43,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup():
+    app.state.db = await connect_to_db()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.db.close()
 
 @app.get("/")
 def read_root():
@@ -79,7 +87,7 @@ async def upload_files(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/downloadd", response_class=JSONResponse)
+@app.post("/download", response_class=JSONResponse)
 async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
     file_record = db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
     if not file_record:
@@ -95,17 +103,35 @@ async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)
             status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
         )
 
+@app.post("/downloadd", response_class=JSONResponse)
+async def download_file_second(file_id: int = Query(...)):
+    conn = app.state.db
+    query = "SELECT file FROM file_records WHERE id=$1"
+    file_record = await conn.fetchrow(query, file_id)
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
 
-@app.post("/download", response_class=JSONResponse)
+    try:
+        file_content = io.BytesIO(file_record["file"])
+        parser = PyEvtxParser(file_content)
+        records = [record for record in parser.records_json()]
+        return JSONResponse(content=records)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
+        )
+
+@app.post("/downloaddd", response_class=JSONResponse)
 async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)):
-    # Recuperar o registro do banco de dados
+    # Recupera o registro do banco de dados
     file_record = (
         db.query(models.FileRecord).filter(models.FileRecord.id == file_id).first()
     )
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Criar um arquivo temporário
+    # Cria um arquivo temporário
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         temp_file.write(file_record.file)
         temp_file_path = temp_file.name
@@ -114,7 +140,7 @@ async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)
         parser = PyEvtxParser(temp_file_path)
         error_records = []
 
-        # Filtrar registros de erro
+        # Filtra registros de erro
         for record in parser.records_json():
             event_level_match = re.search(r"<Level>(.*?)</Level>", record["data"])
             if not event_level_match:
@@ -127,7 +153,7 @@ async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)
             ):
                 error_records.append(record)
 
-        # Carregar eventos não-falhos
+        # Carrega eventos não-falhos
         caminho_para_csv = r"C:\Users\natha\Desktop\git\crud-fastapi-react\server\app"
         df_non_failure_events = pd.read_csv(
             os.path.join(caminho_para_csv, "1_non_failure_events.csv"),
@@ -141,7 +167,7 @@ async def download_file(file_id: int = Query(...), db: Session = Depends(get_db)
         ):
             dict_non_failure_events[k.lower()].append(v)
 
-        # Filtrar registros não-falhos
+        # Filtra registros de não falhos
         filtered_records = []
         for record in error_records:
             line_filtered_1 = re.sub(r"<\?xml([\s\S]*?)>\n", "", record["data"])
@@ -215,3 +241,7 @@ async def get_plot():
     buf.seek(0)
 
     return Response(content=buf.getvalue(), media_type="image/png")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
