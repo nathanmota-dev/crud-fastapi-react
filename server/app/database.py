@@ -24,3 +24,4 @@ def get_db():
 # Configuração do asyncpg
 async def connect_to_db():
     return await asyncpg.connect(DATABASE_URL)
+
