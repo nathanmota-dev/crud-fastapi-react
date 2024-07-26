@@ -23,6 +23,9 @@ from fastapi import (
     Query,
     Response,
 )
+from .config import caminho_para_csv
+
+print(f"O caminho do CSV é: {caminho_para_csv}")
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -84,11 +87,10 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
     if not user_record:
         raise HTTPException(status_code=404, detail="User not found")
 
-    registros_com_erro = []
-    filtered_records_com_erro = []
-    filtered_sem_erro = []
-
-    caminho_para_csv = r"C:\Users\fdisu\OneDrive\Área de Trabalho\crud-fastapi-react\server\app"
+    registros_com_falha = []
+    filtered_records_com_falha = []
+    filtered_sem_falha = []
+    
     df_non_failure_events = pd.read_csv(os.path.join(caminho_para_csv, "1_non_failure_events.csv"), encoding='utf-8-sig', engine='python')
 
     dict_non_failure_events = defaultdict(list)
@@ -100,15 +102,16 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
         try:
             file_content = arquivo.file
             print("File content length:", len(file_content))  # Verificar o tamanho do arquivo
+            print("File name:", arquivo.original_filename)  # Verificar o nome do arquivo
 
             objeto_evtx = PyEvtxParser(io.BytesIO(file_content))
-            total_records = sum(1 for _ in objeto_evtx.records_json())
+            total_records = sum(1 for _ in objeto_evtx.records())
             print("Total records:", total_records)  # Verificar o número total de registros
 
             objeto_evtx = PyEvtxParser(io.BytesIO(file_content))  # Reiniciar o parser
             record_count = 0
 
-            for registro in objeto_evtx.records_json():
+            for registro in objeto_evtx.records():
                 record_count += 1
                 if record_count % 1000 == 0:
                     print(f"Processing record {record_count} of {total_records}")
@@ -117,12 +120,12 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                 if not event_level_match:
                     continue
                 event_level = event_level_match.group(1)
-                if ("Application" in arquivo.original_filename and event_level == "2") or \
-                        ("System" in arquivo.original_filename and event_level in ("1", "2")):
-                    registros_com_erro.append(registro)
-            print("Number of error records:", len(registros_com_erro))  # Verificar o número de registros com erro
+                if ("Application.evtx" in arquivo.original_filename and event_level == "2") or \
+                        ("System.evtx" in arquivo.original_filename and event_level in ("1", "2")):
+                    registros_com_falha.append(registro)
+            print("Number of error records:", len(registros_com_falha))  # Verificar o número de registros com erro
 
-            for registro in registros_com_erro:
+            for registro in registros_com_falha:
                 line_filtered_1 = re.sub(r'<\?xml([\s\S]*?)>\n', '', registro['data'])
                 line_filtered_2 = re.sub(r' xmlns=\"([\s\S]*?)\"', '', line_filtered_1)
                 evento_estrutura_dict = xmltodict.parse(line_filtered_2)
@@ -133,6 +136,7 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                     SourceName = evento_estrutura_dict__tag_System.get("Provider").get("@EventSourceName")
 
                 EventID = evento_estrutura_dict__tag_System.get("EventID")
+                print("EventID before conversion:", EventID)  # Adicione esta linha para verificar o valor de EventID
 
                 if SourceName is not None:
                     print("SourceName:", SourceName)  # Verificar o SourceName
@@ -141,15 +145,18 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
 
                 print("EventID:", EventID)  # Verificar o EventID
 
+                if isinstance(EventID, dict):  # verificação para lidar com EventID como dicionário
+                    EventID = EventID.get("#text", "")
+                    
                 if SourceName.lower() in dict_non_failure_events:
                     listaDe_EventIDs = dict_non_failure_events[SourceName.lower()]
                     if int(EventID) in listaDe_EventIDs:
-                        filtered_sem_erro.append(registro)
+                        filtered_sem_falha.append(registro)
                         continue
-                filtered_records_com_erro.append(registro)
+                filtered_records_com_falha.append(registro)
 
-            print("Filtered error records:", len(filtered_records_com_erro))  # Verificar o número de registros com erro filtrados
-            print("Filtered non-error records:", len(filtered_sem_erro))  # Verificar o número de registros sem erro filtrados
+            print("Filtered failure records:", len(filtered_records_com_falha))  # Verificar o número de registros com erro filtrados
+            print("Filtered non-failure records:", len(filtered_sem_falha))  # Verificar o número de registros sem erro filtrados
 
         except Exception as e:
             raise HTTPException(
@@ -157,9 +164,9 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
             )
 
     return JSONResponse(content={
-        "detail": f"registros com erro: {len(filtered_records_com_erro)}\n registros sem erro: {len(filtered_sem_erro)}",
-        "registros_com_erro": filtered_records_com_erro,
-        "registros_sem_erro": filtered_sem_erro
+        "detail": f"registros com falha: {len(filtered_records_com_falha)} \n registros sem erro: {len(filtered_sem_falha)}",
+        "registros_com_falha": filtered_records_com_falha,
+        "registros_sem_falha": filtered_sem_falha
     })
     
 @app.get("/plot")
