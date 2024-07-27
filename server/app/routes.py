@@ -26,17 +26,14 @@ from .config import caminho_para_csv
 
 router = APIRouter()
 
-
 @router.get("/")
 def read_root():
     return {"Hello": "World"}
-
 
 @router.get("/forms")
 def read_upload(db: Session = Depends(get_db)):
     all_forms = db.query(models.FileRecord).all()
     return {"Todos Formulários de Contato": all_forms}
-
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_files(
@@ -66,7 +63,6 @@ async def upload_files(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/download", response_class=JSONResponse)
 async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)):
     user_record = (
@@ -92,15 +88,9 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
     for arquivo in user_record.files:
         try:
             file_content = arquivo.file
-
             objeto_evtx = PyEvtxParser(io.BytesIO(file_content))
-            total_records = sum(1 for _ in objeto_evtx.records())
-
-            objeto_evtx = PyEvtxParser(io.BytesIO(file_content))
-            record_count = 0
 
             for registro in objeto_evtx.records():
-                record_count += 1
 
                 event_level_match = re.search(r"<Level>(.*?)</Level>", registro["data"])
                 if not event_level_match:
@@ -119,17 +109,11 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                 line_filtered_1 = re.sub(r"<\?xml([\s\S]*?)>\n", "", registro["data"])
                 line_filtered_2 = re.sub(r" xmlns=\"([\s\S]*?)\"", "", line_filtered_1)
                 evento_estrutura_dict = xmltodict.parse(line_filtered_2)
-                evento_estrutura_dict__tag_System = evento_estrutura_dict.get(
-                    "Event"
-                ).get("System")
+                evento_estrutura_dict__tag_System = evento_estrutura_dict.get("Event").get("System")
 
-                SourceName = evento_estrutura_dict__tag_System.get("Provider").get(
-                    "@Name"
-                )
+                SourceName = evento_estrutura_dict__tag_System.get("Provider").get("@Name")
                 if SourceName is None:
-                    SourceName = evento_estrutura_dict__tag_System.get("Provider").get(
-                        "@EventSourceName"
-                    )
+                    SourceName = evento_estrutura_dict__tag_System.get("Provider").get("@EventSourceName")
 
                 EventID = evento_estrutura_dict__tag_System.get("EventID")
 
@@ -150,12 +134,11 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
 
     return JSONResponse(
         content={
-            "detail": f"registros com falha: {len(filtered_records_com_falha)} \n registros sem erro: {len(filtered_sem_falha)}",
+            "detail": f"registros com falha: {len(filtered_records_com_falha)} \n registros sem falha: {len(filtered_sem_falha)}",
             "registros_com_falha": filtered_records_com_falha,
             "registros_sem_falha": filtered_sem_falha,
         }
     )
-
 
 @router.get("/plot")
 async def get_plot():
