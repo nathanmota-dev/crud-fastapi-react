@@ -1,0 +1,1 @@
+caminho_para_csv = r"C:\Users\fdisu\OneDrive\Área de Trabalho\crud-fastapi-react\server\assets"
