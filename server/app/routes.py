@@ -22,7 +22,6 @@ from .database import get_db
 from evtx import PyEvtxParser
 import matplotlib.pyplot as plt
 from typing import List
-from .config import caminho_para_csv
 
 router = APIRouter()
 
@@ -74,7 +73,9 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
     registros_com_falha = []
     filtered_records_com_falha = []
     filtered_sem_falha = []
-
+    caminho_para_diretorio_atual = os.getcwd() 
+    print(caminho_para_diretorio_atual)
+    caminho_para_csv = caminho_para_diretorio_atual+"\\assets"
     df_non_failure_events = pd.read_csv(
         os.path.join(caminho_para_csv, "1_non_failure_events.csv"),
         encoding="utf-8-sig",
@@ -140,6 +141,18 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
         }
     )
 
+
+
+# filtar para pegar o evento IC - UFU! ID do evento para pegar o TimeZone: 6013 e descobrir o timezone
+# trocar os timestamp para se tornarem o timezone do br
+#ENCONTRAR, FILTRAR E TROCAR
+
+
+
+
+
+
+
 @router.get("/plot")
 async def get_plot():
     x = [1, 2, 3, 4, 5]
@@ -156,3 +169,15 @@ async def get_plot():
     buf.seek(0)
 
     return Response(content=buf.getvalue(), media_type="image/png")
+
+# na server, não na main
+# uvicorn app.main:app --reload --root-path server
+
+# Vá para a aba "Headers".
+# Adicione um novo cabeçalho: Content-Type com o valor multipart/form-data.
+# Vá para a aba "Body".
+# Selecione a opção "form-data".
+# Adicione os campos do formulário: name, email e files:
+# -Para name e email, defina o tipo como "Text" e insira os valores apropriados.
+# -Para files, defina o tipo como "File". Clique em "Select Files" e escolha os arquivos que deseja enviar. 
+#     Repita este passo para cada arquivo que deseja enviar.
