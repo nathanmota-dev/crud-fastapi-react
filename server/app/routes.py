@@ -85,7 +85,7 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
     dict_non_failure_events = defaultdict(list)
     for k, v in zip(df_non_failure_events.SourceName, df_non_failure_events.EventID):
         dict_non_failure_events[k.lower()].append(v)
-
+    
     for arquivo in user_record.files:
         try:
             file_content = arquivo.file
@@ -105,7 +105,7 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                     and event_level in ("1", "2")
                 ):
                     registros_com_falha.append(registro)
-
+                    
             for registro in registros_com_falha:
                 line_filtered_1 = re.sub(r"<\?xml([\s\S]*?)>\n", "", registro["data"])
                 line_filtered_2 = re.sub(r" xmlns=\"([\s\S]*?)\"", "", line_filtered_1)
@@ -131,44 +131,29 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
-            )
+        )
 
-    return JSONResponse(
-        content={
-            "detail": f"registros com falha: {len(filtered_records_com_falha)} \n registros sem falha: {len(filtered_sem_falha)}",
-            "registros_com_falha": filtered_records_com_falha,
-            "registros_sem_falha": filtered_sem_falha,
-        }
-    )
+    return filtered_records_com_falha
 
+@router.post("/download6013", response_class=JSONResponse)
+async def download6013(user_id: int = Query(...), db: Session = Depends(get_db)):
+    filtered_records_com_falha = await download_file(user_id, db)
+    
+    for record in filtered_records_com_falha:
+        event_record_id_match = re.search(r"<EventRecordID>(.*?)</EventRecordID>", record["data"])
+        if(event_record_id_match.group(1) == "6013"):
+            print(record,"\n")
+    
+    return JSONResponse(content={"filtered_records_com_falha": filtered_records_com_falha})
 
-
-# filtar para pegar o evento IC - UFU! ID do evento para pegar o TimeZone: 6013 e descobrir o timezone
+# filtar para pegar o evento 6013 para pegar o TimeZone
 # trocar os timestamp para se tornarem o timezone do br
-#ENCONTRAR, FILTRAR E TROCAR
+# ENCONTRAR, FILTRAR E TROCAR
 
 
 
 
 
-
-
-@router.get("/plot")
-async def get_plot():
-    x = [1, 2, 3, 4, 5]
-    y = [2, 3, 5, 7, 11]
-
-    plt.figure()
-    plt.plot(x, y)
-    plt.title("Gráfico teste")
-    plt.xlabel("X")
-    plt.ylabel("Y")
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-
-    return Response(content=buf.getvalue(), media_type="image/png")
 
 # na server, não na main
 # uvicorn app.main:app --reload --root-path server
