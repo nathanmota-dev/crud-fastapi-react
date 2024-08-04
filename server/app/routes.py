@@ -22,6 +22,8 @@ from .database import get_db
 from evtx import PyEvtxParser
 import matplotlib.pyplot as plt
 from typing import List
+from datetime import datetime 
+import pytz
 
 router = APIRouter()
 
@@ -34,6 +36,15 @@ def read_upload(db: Session = Depends(get_db)):
     all_forms = db.query(models.FileRecord).all()
     return {"Todos Formulários de Contato": all_forms}
 
+def get_filename(file):
+    objeto_evtx = PyEvtxParser(io.BytesIO(file))
+    for registro in objeto_evtx.records():
+        match = re.search(r"<Channel>(.*?)</Channel>", registro["data"])
+        if match:
+            return match.group(1)
+    return None  # Retorna None se não encontrar o filename
+
+# PAREI NO 6, 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_files(
     name: str = Form(...),
@@ -46,11 +57,12 @@ async def upload_files(
         db.add(user_record)
         db.commit()
         db.refresh(user_record)
-
+        
         for file in files:
             file_content = await file.read()
+            filename = get_filename(file_content)
             file_record = models.FileRecord(
-                original_filename=file.filename,
+                original_filename=filename,
                 file=file_content,
                 user_id=user_record.id,
             )
@@ -70,6 +82,7 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
     if not user_record:
         raise HTTPException(status_code=404, detail="User not found")
 
+    registros = []
     registros_com_falha = []
     filtered_records_com_falha = []
     filtered_sem_falha = []
@@ -92,16 +105,16 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
             objeto_evtx = PyEvtxParser(io.BytesIO(file_content))
 
             for registro in objeto_evtx.records():
-
+                registros.append(registro)
                 event_level_match = re.search(r"<Level>(.*?)</Level>", registro["data"])
                 if not event_level_match:
                     continue
                 event_level = event_level_match.group(1)
                 if (
-                    "Application.evtx" in arquivo.original_filename
+                    "Application" in arquivo.original_filename
                     and event_level == "2"
                 ) or (
-                    "System.evtx" in arquivo.original_filename
+                    "System" in arquivo.original_filename
                     and event_level in ("1", "2")
                 ):
                     registros_com_falha.append(registro)
@@ -110,9 +123,10 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                 line_filtered_1 = re.sub(r"<\?xml([\s\S]*?)>\n", "", registro["data"])
                 line_filtered_2 = re.sub(r" xmlns=\"([\s\S]*?)\"", "", line_filtered_1)
                 evento_estrutura_dict = xmltodict.parse(line_filtered_2)
+                
                 evento_estrutura_dict__tag_System = evento_estrutura_dict.get("Event").get("System")
-
                 SourceName = evento_estrutura_dict__tag_System.get("Provider").get("@Name")
+                
                 if SourceName is None:
                     SourceName = evento_estrutura_dict__tag_System.get("Provider").get("@EventSourceName")
 
@@ -133,7 +147,7 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                 status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
         )
 
-    return filtered_records_com_falha
+    return registros
 
 @router.post("/download6013", response_class=JSONResponse)
 async def download6013(user_id: int = Query(...), db: Session = Depends(get_db)):
@@ -141,21 +155,21 @@ async def download6013(user_id: int = Query(...), db: Session = Depends(get_db))
     
     for record in filtered_records_com_falha:
         event_record_id_match = re.search(r"<EventRecordID>(.*?)</EventRecordID>", record["data"])
+        event_record_timezone_match = re.search(r"<TimeCreated SystemTime=\"(.*?)\">\n    </TimeCreated>\n", record["data"])
+        timestamp_str = event_record_timezone_match.group(1)
+        timestamp_utc = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
         if(event_record_id_match.group(1) == "6013"):
-            print(record,"\n")
+            print("Antes de mudar \n",record,"\n")
+            # # Converter para fuso horário específico, por exemplo, Brasil (São Paulo)
+            timezone = pytz.timezone("America/Sao_Paulo")
+            timestamp_local = timestamp_utc.astimezone(timezone)
+            print("Hora br:", timestamp_local)
     
-    return JSONResponse(content={"filtered_records_com_falha": filtered_records_com_falha})
-
-# filtar para pegar o evento 6013 para pegar o TimeZone
-# trocar os timestamp para se tornarem o timezone do br
-# ENCONTRAR, FILTRAR E TROCAR
+    # return JSONResponse(content={"filtered_records_com_falha": filtered_records_com_falha})
 
 
 
 
-
-
-# na server, não na main
 # uvicorn app.main:app --reload --root-path server
 
 # Vá para a aba "Headers".
