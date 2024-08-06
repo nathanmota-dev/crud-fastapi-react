@@ -13,7 +13,6 @@ from fastapi import (
     UploadFile,
     Form,
     Query,
-    Response,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -24,6 +23,7 @@ import matplotlib.pyplot as plt
 from typing import List
 from datetime import datetime 
 import pytz
+import json
 
 router = APIRouter()
 
@@ -82,7 +82,6 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
     if not user_record:
         raise HTTPException(status_code=404, detail="User not found")
 
-    registros = []
     registros_com_falha = []
     filtered_records_com_falha = []
     filtered_sem_falha = []
@@ -105,7 +104,6 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
             objeto_evtx = PyEvtxParser(io.BytesIO(file_content))
 
             for registro in objeto_evtx.records():
-                registros.append(registro)
                 event_level_match = re.search(r"<Level>(.*?)</Level>", registro["data"])
                 if not event_level_match:
                     continue
@@ -147,25 +145,58 @@ async def download_file(user_id: int = Query(...), db: Session = Depends(get_db)
                 status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
         )
 
-    return registros
+    return JSONResponse(content={
+        "filtered_records_com_falha": filtered_records_com_falha,
+        "filtered_sem_falha": filtered_sem_falha,
+        "registros_com_falha": registros_com_falha
+    })
 
 @router.post("/download6013", response_class=JSONResponse)
 async def download6013(user_id: int = Query(...), db: Session = Depends(get_db)):
-    filtered_records_com_falha = await download_file(user_id, db)
+    user_record = (
+        db.query(models.UserRecord).filter(models.UserRecord.id == user_id).first()
+    )
+    if not user_record:
+        raise HTTPException(status_code=404, detail="User not found")
     
-    for record in filtered_records_com_falha:
+    registros = []
+    for arquivo in user_record.files:
+        try:
+            file_content = arquivo.file
+            objeto_evtx = PyEvtxParser(io.BytesIO(file_content))
+
+            for registro in objeto_evtx.records():
+                registros.append(registro)
+                
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
+        )
+    
+    registros_antes_da_mudanca = []
+    registros_depois_da_mudanca = []
+    
+    timezone_especifico = pytz.timezone("America/Sao_Paulo")
+    
+    for record in registros:
         event_record_id_match = re.search(r"<EventRecordID>(.*?)</EventRecordID>", record["data"])
-        event_record_timezone_match = re.search(r"<TimeCreated SystemTime=\"(.*?)\">\n    </TimeCreated>\n", record["data"])
-        timestamp_str = event_record_timezone_match.group(1)
-        timestamp_utc = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
+        
         if(event_record_id_match.group(1) == "6013"):
-            print("Antes de mudar \n",record,"\n")
-            # # Converter para fuso horário específico, por exemplo, Brasil (São Paulo)
-            timezone = pytz.timezone("America/Sao_Paulo")
-            timestamp_local = timestamp_utc.astimezone(timezone)
-            print("Hora br:", timestamp_local)
+            event_record_timezone_match = re.search(r"<TimeCreated SystemTime=\"(.*?)\">\n    </TimeCreated>\n", record["data"])
+            timestamp_str = event_record_timezone_match.group(1)
+            timestamp_utc = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
+            
+            print("\ntimestamp antes de trocar:", timestamp_str)
+            timestamp_manipulada = timestamp_utc.astimezone(timezone_especifico)
+            print("\ntimestamp depois de trocar:", timestamp_manipulada)
+            
+            timestamp_manipulada_str = timestamp_manipulada.isoformat()
+            record["data"] = record["data"].replace(timestamp_str, timestamp_manipulada_str)
+            
+            
     
-    # return JSONResponse(content={"filtered_records_com_falha": filtered_records_com_falha})
+    return
+    
 
 
 
