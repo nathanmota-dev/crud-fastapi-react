@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Events xmlns:ns0="http://schemas.microsoft.com/win/2004/08/events/event"><ns0:Event>
+  <ns0:System>
+    <ns0:Provider Name="Microsoft-Windows-WindowsUpdateClient" Guid="945A8954-C147-4ACD-923F-40C45405A658">
+    </ns0:Provider>
+    <ns0:EventID>19</ns0:EventID>
+    <ns0:Version>1</ns0:Version>
+    <ns0:Level>4</ns0:Level>
+    <ns0:Task>1</ns0:Task>
+    <ns0:Opcode>13</ns0:Opcode>
+    <ns0:Keywords>0x8000000000000018</ns0:Keywords>
+    <ns0:TimeCreated SystemTime="2021-09-14T10:28:13.080874Z">
+    </ns0:TimeCreated>
+    <ns0:EventRecordID>6013</ns0:EventRecordID>
+    <ns0:Correlation ActivityID="0C9BCD17-A723-0003-C99C-A80C23A7D701">
+    </ns0:Correlation>
+    <ns0:Execution ProcessID="1428" ThreadID="9712">
+    </ns0:Execution>
+    <ns0:Channel>System</ns0:Channel>
+    <ns0:Computer>DESKTOP-9K7S2JO</ns0:Computer>
+    <ns0:Security UserID="S-1-5-18">
+    </ns0:Security>
+  </ns0:System>
+  <ns0:EventData>
+    <ns0:Data Name="updateTitle">9WZDNCRDTBJJ-MICROSOFT.GETSTARTED</ns0:Data>
+    <ns0:Data Name="updateGuid">52AD783B-BC6F-405A-99DF-109B7A2CDA80</ns0:Data>
+    <ns0:Data Name="updateRevisionNumber">1</ns0:Data>
+    <ns0:Data Name="serviceGuid">855E8A7C-ECB4-4CA3-B045-1DFA50104289</ns0:Data>
+  </ns0:EventData>
+<AdjustedTimeZone>2021-09-14T07:28:13.080874-03:00</AdjustedTimeZone></ns0:Event></Events>
