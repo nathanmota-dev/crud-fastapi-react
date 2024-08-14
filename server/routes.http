@@ -1,6 +1,11 @@
 ### POST /create
 
-POST http://127.0.0.1:8000/download
+POST http://127.0.0.1:8000/download6013?user_id=8
 Content-Type: application/x-www-form-urlencoded
 
-file_id=14
+
+
+
+
+
+

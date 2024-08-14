@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from typing import List
 from datetime import datetime 
 import pytz
-import json
+import xml.etree.ElementTree as ET
 
 router = APIRouter()
 
@@ -171,32 +171,38 @@ async def download6013(user_id: int = Query(...), db: Session = Depends(get_db))
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Erro ao processar o arquivo EVTX: {str(e)}"
-        )
-    
-    registros_antes_da_mudanca = []
-    registros_depois_da_mudanca = []
-    
+            )
+            
+    cont = 0
     timezone_especifico = pytz.timezone("America/Sao_Paulo")
     
     for record in registros:
-        event_record_id_match = re.search(r"<EventRecordID>(.*?)</EventRecordID>", record["data"])
+        event_id = re.search(r'<EventID(?:[^>]*)>(\d+)</EventID>', record['data'])
         
-        if(event_record_id_match.group(1) == "6013"):
-            event_record_timezone_match = re.search(r"<TimeCreated SystemTime=\"(.*?)\">\n    </TimeCreated>\n", record["data"])
-            timestamp_str = event_record_timezone_match.group(1)
-            timestamp_utc = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
+        if event_id.group(1) == "6013":
+            line_filtered_1 = re.sub(r"<\?xml([\s\S]*?)>\n", "", record["data"])
+            line_filtered_2 = re.sub(r" xmlns=\"([\s\S]*?)\"", "", line_filtered_1)
+            evento_estrutura_dict = xmltodict.parse(line_filtered_2)
+            evento_estrutura_dict__tag_System = evento_estrutura_dict.get("Event").get("System")
+            TimeCreated = evento_estrutura_dict__tag_System.get("TimeCreated")
             
-            print("\ntimestamp antes de trocar:", timestamp_str)
-            timestamp_manipulada = timestamp_utc.astimezone(timezone_especifico)
-            print("\ntimestamp depois de trocar:", timestamp_manipulada)
+            # Obtendo o valor original do timestamp e convertendo para datetime
+            original_time_str = TimeCreated["@SystemTime"]
+            original_time = datetime.strptime(original_time_str, "%Y-%m-%dT%H:%M:%S.%fZ")
             
-            timestamp_manipulada_str = timestamp_manipulada.isoformat()
-            record["data"] = record["data"].replace(timestamp_str, timestamp_manipulada_str)
+            # Convertendo para o timezone específico
+            original_time = pytz.utc.localize(original_time)
+            new_time = original_time.astimezone(timezone_especifico)
             
+            # Atualizando o TimeCreated com o novo timestamp no formato correto
+            TimeCreated["@SystemTime"] = new_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+            # Agora você pode continuar processando ou salvar o registro modificado
+            print("Novo TimeCreated:", TimeCreated["@SystemTime"])
             
-    
-    return
-    
+            cont += 1
+
+    return JSONResponse(content={"Registros de id 6013": cont})
 
 
 
