@@ -1,30 +1,28 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Events xmlns:ns0="http://schemas.microsoft.com/win/2004/08/events/event"><ns0:Event>
   <ns0:System>
-    <ns0:Provider Name="Microsoft-Windows-WindowsUpdateClient" Guid="945A8954-C147-4ACD-923F-40C45405A658">
+    <ns0:Provider Name="EventLog">
     </ns0:Provider>
-    <ns0:EventID>19</ns0:EventID>
-    <ns0:Version>1</ns0:Version>
+    <ns0:EventID Qualifiers="32768">6013</ns0:EventID>
+    <ns0:Version>0</ns0:Version>
     <ns0:Level>4</ns0:Level>
-    <ns0:Task>1</ns0:Task>
-    <ns0:Opcode>13</ns0:Opcode>
-    <ns0:Keywords>0x8000000000000018</ns0:Keywords>
-    <ns0:TimeCreated SystemTime="2021-09-14T10:28:13.080874Z">
+    <ns0:Task>0</ns0:Task>
+    <ns0:Opcode>0</ns0:Opcode>
+    <ns0:Keywords>0x80000000000000</ns0:Keywords>
+    <ns0:TimeCreated SystemTime="2021-04-27T19:29:38.408913-0300">
     </ns0:TimeCreated>
-    <ns0:EventRecordID>6013</ns0:EventRecordID>
-    <ns0:Correlation ActivityID="0C9BCD17-A723-0003-C99C-A80C23A7D701">
+    <ns0:EventRecordID>172</ns0:EventRecordID>
+    <ns0:Correlation>
     </ns0:Correlation>
-    <ns0:Execution ProcessID="1428" ThreadID="9712">
+    <ns0:Execution ProcessID="0" ThreadID="0">
     </ns0:Execution>
     <ns0:Channel>System</ns0:Channel>
     <ns0:Computer>DESKTOP-9K7S2JO</ns0:Computer>
-    <ns0:Security UserID="S-1-5-18">
+    <ns0:Security>
     </ns0:Security>
   </ns0:System>
   <ns0:EventData>
-    <ns0:Data Name="updateTitle">9WZDNCRDTBJJ-MICROSOFT.GETSTARTED</ns0:Data>
-    <ns0:Data Name="updateGuid">52AD783B-BC6F-405A-99DF-109B7A2CDA80</ns0:Data>
-    <ns0:Data Name="updateRevisionNumber">1</ns0:Data>
-    <ns0:Data Name="serviceGuid">855E8A7C-ECB4-4CA3-B045-1DFA50104289</ns0:Data>
+    <ns0:Data>,,,,84,60,180 Hora oficial do Brasil</ns0:Data>
+    <ns0:Binary>31002E003100000030000000570069006E0064006F0077007300200031003000200045006400750063006100740069006F006E000000310030002E0030002E003100390030003400320020004200750069006C0064002000310039003000340032002000200000004D0075006C0074006900700072006F0063006500730073006F007200200046007200650065000000310039003000340031002E00760062005F00720065006C0065006100730065002E003100390031003200300036002D00310034003000360000003600300038003800380066003400370000004E006F007400200041007600610069006C00610062006C00650000004E006F007400200041007600610069006C00610062006C006500000039000000340000003700390039003100000034003100360000004400450053004B0054004F0050002D0039004B003700530032004A004F0000000000</ns0:Binary>
   </ns0:EventData>
-<AdjustedTimeZone>2021-09-14T07:28:13.080874-03:00</AdjustedTimeZone></ns0:Event></Events>
+</ns0:Event></Events>

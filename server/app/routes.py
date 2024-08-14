@@ -192,38 +192,33 @@ async def download6013(user_id: int = Query(...), db: Session = Depends(get_db))
         # Parse o XML do registro
         event_element = ET.fromstring(record["data"])
 
-        # Verifica se o registro contém o EventRecordID 6013
-        event_record_id_element = event_element.find(
-            ".//ns0:EventRecordID",
+        # Verifica se o registro contém o EventID 6013
+        event_id_element = event_element.find(
+            ".//ns0:EventID",
             namespaces={"ns0": event_element.tag.split("}")[0].strip("{")},
         )
         if (
-            event_record_id_element is not None
-            and event_record_id_element.text == "6013"
+            event_id_element is not None
+            and event_id_element.text == "6013"
         ):
             # Busca o campo de TimeCreated
-            event_record_timezone_element = event_element.find(
+            event_time_created_element = event_element.find(
                 ".//ns0:TimeCreated",
                 namespaces={"ns0": event_element.tag.split("}")[0].strip("{")},
             )
-            if event_record_timezone_element is not None:
-                timestamp_str = event_record_timezone_element.attrib.get("SystemTime")
+            if event_time_created_element is not None:
+                timestamp_str = event_time_created_element.attrib.get("SystemTime")
                 if timestamp_str:
+                    # Converte o horário de UTC para o fuso horário de Brasília
                     timestamp_utc = datetime.strptime(
                         timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ"
                     ).replace(tzinfo=pytz.UTC)
 
                     timestamp_manipulada = timestamp_utc.astimezone(timezone_especifico)
-                    timestamp_manipulada_str = timestamp_manipulada.isoformat().replace(
-                        "+00:00", "+03:00"
-                    )
+                    timestamp_manipulada_str = timestamp_manipulada.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
 
-                    # Cria um novo campo com o horário ajustado
-                    novo_horario_element = ET.Element("AdjustedTimeZone")
-                    novo_horario_element.text = timestamp_manipulada_str
-
-                    # Adiciona o novo elemento ao registro XML
-                    event_element.append(novo_horario_element)
+                    # Atualiza o atributo SystemTime com o novo horário ajustado
+                    event_time_created_element.set("SystemTime", timestamp_manipulada_str)
 
                     # Atualiza o registro 6013 com o novo XML
                     registro_6013 = ET.tostring(event_element, encoding="unicode")
@@ -247,7 +242,7 @@ async def download6013(user_id: int = Query(...), db: Session = Depends(get_db))
         )
     else:
         raise HTTPException(status_code=404, detail="Registro 6013 não encontrado")
-
+    
 
 # uvicorn app.main:app --reload --root-path server
 
